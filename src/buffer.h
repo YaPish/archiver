@@ -5,8 +5,7 @@ class Buffer {
 private:
     Archive  * archive;
 
-    uint8_t * data;
-    size_t    dataSize;
+    std::list< Byteset > dataBlocks;
 
 public:
     Buffer()  = default;
@@ -15,7 +14,8 @@ public:
     void newArchive();
     void convertArchiveToFile();
 
-    void readFile( std::string filePath, size_t blockSize = 0 );
+    /* blockSize == 0 -> EOF */
+    void readFile( std::string filePath, std::size_t blockSize = 0 );
     void getData(  )
 };
 
