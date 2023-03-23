@@ -14,7 +14,7 @@ public:
     // Modifiers //
     std::size_t size() const;
     void        size( std::size_t value );
-
+/*
     Byteset & operator&=( const Byteset & other );
     Byteset & operator|=( const Byteset & other );
     Byteset & operator^=( const Byteset & other );
@@ -25,7 +25,7 @@ public:
     Byteset & operator|( const Byteset & other );
     Byteset & operator^( const Byteset & other );
     Byteset & operator~( const Byteset & other );
-
+*/
     // Conversions //
     Bitset toBitset() const;
 };
