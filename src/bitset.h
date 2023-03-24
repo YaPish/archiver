@@ -1,13 +1,17 @@
 #ifndef _BITSET_H_
 #define _BITSET_H_
 
+#include <cstdint>
+
+
 class Bitset {
 private:
-    std::vector< std::uint8_t > data;
-    std::size_t                 actualSize;
+    std::vector< std::uint8_t > m_data;
+    std::size_t                 m_actualSize;
+    bool                        m_defaultValue;
 
 public:
-    Bitset( std::size_t size );
+    Bitset( std::size_t size = 0, bool defaultValue = 0 );
 
     // Element access //
     bool & operator[]( std::size_t index );
@@ -22,24 +26,24 @@ public:
     std::size_t size() const;
     void        size( std::size_t value );
 
-    Bitset &    flip();
-    Bitset &    flip( std::size_t index );
+    void        flip();
+    void        flip( std::size_t index );
 
-    Bitset &    reset();
+    void        reset();
 
     Bitset & operator&=( const Bitset & other );
     Bitset & operator|=( const Bitset & other );
     Bitset & operator^=( const Bitset & other );
-    Bitset & operator~=( const Bitset & other );
+    Bitset & operator~=();
 
     // Boolean operations //
     Bitset & operator&( const Bitset & other );
     Bitset & operator|( const Bitset & other );
     Bitset & operator^( const Bitset & other );
-    Bitset & operator~( const Bitset & other );
+    Bitset & operator~();
 
     // Conversions //
-    Byteset toByteset() const;
+    // Byteset toByteset() const;
 };
 
 #endif
