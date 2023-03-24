@@ -3,13 +3,22 @@
 
 class Buffer {
 private:
-    Archive  * archive;
-
-    std::list< Byteset > dataBlocks;
+    Archive * m_archive;
 
 public:
-    Buffer()  = default;
-    ~Buffer() = default;
+    struct archive {
+        void clear();
+        void getOutputFile();
+    };
+
+    struct file {
+        void add(
+            std::string path,
+            std::string name,
+            std::size_t blockSize = 0
+        );
+        void remove( std::string name );
+    };
 
     void newArchive();
     void convertArchiveToFile();

@@ -13,18 +13,20 @@ private:
         Bitset             wordSize;
     };
 
-    Catalog m_catalog;
+    Folder * m_catalog; // Head folder //
 
 public:
     Archive( Version          minVersion            = VERSION_DEV_BETA,
-             CompressedMethod defaultCompressMethod = COMPRESS_METHOD_RLE,
+             CompressedMethod defaultCompressMethod = COMPRESS_METHOD_NON,
              std::uint8_t     fileCountBytes        = 1,
              std::uint8_t     folderCountBytes      = 1 );
-    Version        getMinVersion();
-    CompressMethod getDefaultCompressMethod();
-    EncodeMethod   getDefaultEncodeMethod();
 
-    void createOutputFile();
+    Version        getMinVersion() const;
+    CompressMethod getDefaultCompressMethod() const;
+    EncodeMethod   getDefaultEncodeMethod() const;
+
+    Folder * catalog();
+    void     createOutputFile();
 };
 
 #endif

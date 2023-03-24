@@ -19,7 +19,7 @@ public:
 
     Byteset getArchivedView();
 
-    struct file {
+    struct files {
         std::size_t count() const;
 
         void add( File src );
@@ -27,11 +27,9 @@ public:
 
         File * get( std::string name );
         File * get( std::uint64_t id );
-
-        void move( Folder * dest );
     };
 
-    struct folder {
+    struct folders {
         std::size_t count() const;
 
         void add( Folder src );
@@ -40,8 +38,13 @@ public:
         Folder * get( std::string name );
         Folder * get( std::uint64_t id );
 
-        void move( Folder * dest );
+        Folder * back();
     };
 };
+
+
+
+Folder test;
+test.folders.add
 
 #endif
