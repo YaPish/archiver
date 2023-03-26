@@ -15,7 +15,7 @@ enum Version {
 //  Size: 1 byte  //
 ////////////////////
 enum CompressMethod {
-    COMPRESS_METHOD_NON = 0
+    COMPRESS_METHOD_NON = 0,
     COMPRESS_METHOD_RLE = 1
 };
 
@@ -23,9 +23,16 @@ enum CompressMethod {
 // EncodingMethod //
 //  Size: 1 byte  //
 ////////////////////
-enum EncodingMethod {
-    ENCODING_METHOD_NON = 0
+enum EncodeMethod {
+    ENCODE_METHOD_NON = 0
 };
 
+
+#define ARCHIVE_SECTION_COUNT 3
+enum ArchiveSection {
+    ARCHIVE_SECTION_GENERAL = 1,
+    ARCHIVE_SECTION_CATALOG = 2,
+    ARCHIVE_SECTION_FILES   = 4
+};
 
 #endif

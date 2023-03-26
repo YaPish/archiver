@@ -1,15 +1,10 @@
 #include <iostream>
-#include <ios>
+#include <filesystem>
 
-/*
-#include "buffer.h"
-#include "controller.h"
-#include "executor.h"
-*/
+#include "archive.h"
 
 int main( int args, char ** argv ) {
-    int i = 241;
-    std::cout << std::hex << i << " | "
-        << std::bitset< 8 >( i ) << std::endl;
+    Archive test;
+    test.add( std::filesystem::file_type::directory, argv[ 1 ], argv[ 2 ] );
     return 0;
 }
