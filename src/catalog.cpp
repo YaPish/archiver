@@ -2,14 +2,10 @@
 
 
 #include <fstream>
+#include <cmath>
 
+#include "def.h"
 #include "catalog.h"
-
-
-#define FILE_FLAG   0
-#define FOLDER_FLAG 1
-
-#define FOLDER_END  2
 
 
 Catalog::Catalog() {
@@ -47,7 +43,7 @@ std::list< std::uint64_t > Catalog::m_getFolderContent( std::filesystem::path fo
     return result;
 }
 
-std::list< std::uint64_t > Catalog::bitwiseView() {
+std::list< std::uint64_t > Catalog::bitwiseCatalog() {
     m_folderNames.clear(); m_fileNames.clear();
     m_folderId = 0; m_fileId = 0;
 
@@ -76,10 +72,50 @@ std::list< std::uint64_t > Catalog::bitwiseView() {
             result.insert( folder, folderContent.begin(), folderContent.end() );
         }
     }
+    // ?
     std::filesystem::remove_all( m_localRoot );
 
     return result;
 }
+
+std::list< std::uint64_t > Catalog::bitwiseNames( std::filesystem::file_type type ) {
+    std::list< std::uint64_t > result;
+    std::vector< std::string > srcNames;
+    std::uint64_t              srcNameSize;
+
+    switch( type ) {
+        case std::filesystem::file_type::directory:
+            srcNames = m_folderNames;
+            srcNameSize = nameSize( std::filesystem::file_type::directory );
+            break;
+        case std::filesystem::file_type::regular:
+            srcNames = m_fileNames;
+            srcNameSize = nameSize( std::filesystem::file_type::regular );
+            break;
+    }
+    for( std::uint64_t i = 0; i < srcNames.size(); i++ ) {
+        result.push_back( srcNames[ i ].size() + srcNameSize );
+        result.push_back( i );
+        for( char c : srcNames[ i ] )
+            result.push_back( static_cast< std::uint64_t >( c ) );
+    }
+    return result;
+}
+
+std::uint64_t Catalog::nameSize( std::filesystem::file_type type ) {
+    std::uint64_t srcNameSize;
+    switch( type ) {
+        case std::filesystem::file_type::directory:
+            srcNameSize = m_folderId;
+            break;
+        case std::filesystem::file_type::regular:
+            srcNameSize = m_fileId;
+            break;
+    }
+    std::cout << "SRC: " << std::log2( srcNameSize ) << "  ";
+    return static_cast< std::uint64_t >( std::log2( srcNameSize ) + 1 );
+}
+
 
 void Catalog::add( std::filesystem::file_type pathType,
                    std::filesystem::path srcGlobalPath,

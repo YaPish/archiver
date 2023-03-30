@@ -25,13 +25,13 @@ private:
     Catalog m_catalog;
 
 private:
-    void m_writeGeneral( std::fstream & outputFile );
-    void m_writeCatalog( std::fstream & outputFile );
-    void m_writeFiles( std::fstream & outputFile );
+    void m_writeGeneral( std::ofstream & outputFile );
+    void m_writeCatalog( std::ofstream & outputFile );
+    void m_writeFiles( std::ofstream & outputFile );
 
-    void m_readGeneral( std::fstream & inputFile );
-    void m_readCatalog( std::fstream & inputFile );
-    void m_readFiles( std::fstream & inputFile );
+    void m_readGeneral( std::ofstream & inputFile );
+    void m_readCatalog( std::ofstream & inputFile );
+    void m_readFiles( std::ofstream & inputFile );
 
 public:
     Archive( Version        minVersion            = VERSION_DEV_BETA,

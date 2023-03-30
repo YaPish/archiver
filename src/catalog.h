@@ -7,6 +7,7 @@
 #include <string>
 #include <filesystem>
 
+// TODO: calculate count bytes for id
 
 class Catalog {
 private:
@@ -25,7 +26,14 @@ private:
 public:
     Catalog();
 
-    std::list< std::uint64_t > bitwiseView();
+    std::uint64_t              nameSize(
+        std::filesystem::file_type type
+    );
+
+    std::list< std::uint64_t > bitwiseCatalog();
+    std::list< std::uint64_t > bitwiseNames(
+        std::filesystem::file_type type
+    );
 
     void add(
         std::filesystem::file_type pathType,

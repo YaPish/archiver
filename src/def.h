@@ -1,6 +1,9 @@
 #ifndef _DEF_H_
 #define _DEF_H_
 
+#define FILE_FLAG   1
+#define FOLDER_FLAG 0
+#define FOLDER_END  2
 
 //////////////////
 //    Version   //

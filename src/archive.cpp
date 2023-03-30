@@ -18,7 +18,7 @@ Archive::Archive( std::filesystem::path srcGlobalPath ) {
 }
 
 
-void Archive::m_writeGeneral( std::fstream & outputFile ) {
+void Archive::m_writeGeneral( std::ofstream & outputFile ) {
     std::uint8_t sectionLength;
     switch( m_general.minVersion ) {
         case VERSION_DEV_BETA: sectionLength = 4; break;
@@ -33,15 +33,25 @@ void Archive::m_writeGeneral( std::fstream & outputFile ) {
     }
 }
 
-void Archive::m_writeCatalog( std::fstream & outputFile ) {
-    std::list< std::uint64_t > bitwiseView = m_catalog.bitwiseView();
-    for( auto i : bitwiseView ) {
-        std::cout << std::bitset< 8 >( i ) << "  ";
+void Archive::m_writeCatalog( std::ofstream & outputFile ) {
+    std::list< std::uint64_t > bitwiseCatalog = m_catalog.bitwiseCatalog();
+    std::list< std::uint64_t > bitwiseFolderNames = m_catalog.bitwiseNames(
+        std::filesystem::file_type::directory );
+    std::list< std::uint64_t > bitwiseFileNames = m_catalog.bitwiseNames(
+        std::filesystem::file_type::regular );
+
+    std::filesystem::file_type type;
+
+    for( std::uint64_t i : bitwiseCatalog ) {
+        type = ( i & FOLDER_FLAG ? std::filesystem::file_type::directory
+                                 : std::filesystem::file_type::regular );
+        std::cout << std::bitset< 8 >( i ) << " : " << m_catalog.nameSize( type ) << "   ";
+        outputFile.write( reinterpret_cast< char * >( i ), m_catalog.nameSize( type ) );
     }
     std::cout << std::endl;
 }
 
-void Archive::m_writeFiles( std::fstream & outputFile ) {
+void Archive::m_writeFiles( std::ofstream & outputFile ) {
 
 }
 
@@ -90,13 +100,11 @@ void Archive::updatePack() {
 
 void Archive::pack( std::string           archiveName,
                     std::filesystem::path destGlobalPath ) {
-    if( !std::filesystem::is_directory( destGlobalPath ) ) {
+    if( !std::filesystem::is_directory( destGlobalPath ) )
         return;
-    }
 
-    std::fstream outputFile( destGlobalPath / archiveName,
-                             std::ios::binary | std::ios::out );
-
+    std::ofstream outputFile( destGlobalPath / archiveName,
+                              std::ios::binary | std::ios::out );
     if ( !outputFile.is_open() )
         return;
 
