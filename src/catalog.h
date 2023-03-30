@@ -3,17 +3,29 @@
 
 #include <cstdint>
 #include <list>
+#include <vector>
+#include <string>
 #include <filesystem>
 
 
 class Catalog {
 private:
-    std::filesystem::path m_localRoot;
+    std::filesystem::path      m_localRoot;
+
+    std::vector< std::string > m_folderNames;
+    std::vector< std::string > m_fileNames;
+
+    std::uint64_t              m_folderId;
+    std::uint64_t              m_fileId;
+private:
+    std::list< std::uint64_t > m_getFolderContent(
+        std::filesystem::path folder
+    );
 
 public:
     Catalog();
 
-    std::list< std::uint8_t > bitwiseView();
+    std::list< std::uint64_t > bitwiseView();
 
     void add(
         std::filesystem::file_type pathType,

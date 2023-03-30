@@ -1,3 +1,4 @@
+#include <iostream>
 #include <fstream>
 #include <filesystem>
 
@@ -33,7 +34,11 @@ void Archive::m_writeGeneral( std::fstream & outputFile ) {
 }
 
 void Archive::m_writeCatalog( std::fstream & outputFile ) {
-
+    std::list< std::uint64_t > bitwiseView = m_catalog.bitwiseView();
+    for( auto i : bitwiseView ) {
+        std::cout << std::bitset< 8 >( i ) << "  ";
+    }
+    std::cout << std::endl;
 }
 
 void Archive::m_writeFiles( std::fstream & outputFile ) {
