@@ -21,8 +21,8 @@ int main( int args, char ** argv ) {
 //    test.add( std::filesystem::file_type::regular, "file6", "./folder1/folder2" );
 //    test.add( std::filesystem::file_type::regular, "file7", "./folder1/folder2" );
 //    test.add( std::filesystem::file_type::regular, "file4", "./folder2" );
-    test.add( std::filesystem::file_type::regular, "file5", "./folder1/folder3" );
-    test.add( std::filesystem::file_type::regular, "file6", "./folder1/folder3" );
+//    test.add( std::filesystem::file_type::regular, "file5", "./folder1/folder3" );
+ //   test.add( std::filesystem::file_type::regular, "file6", "./folder1/folder3" );
     test.pack( "TestArchive.yap", "." );
     return 0;
 }

@@ -7,7 +7,6 @@
 #include <string>
 #include <filesystem>
 
-// TODO: calculate count bytes for id
 
 class Catalog {
 private:

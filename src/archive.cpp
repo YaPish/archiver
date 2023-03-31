@@ -33,22 +33,36 @@ void Archive::m_writeGeneral( std::ofstream & outputFile ) {
     }
 }
 
+void Archive::m_writeNames( std::ofstream & outputFile, std::filesystem::file_type type ) {
+    std::list< std::uint64_t > bitwiseNames = m_catalog.bitwiseNames( type );
+    std::uint64_t              nameSize = m_catalog.nameSize( type );
+
+    auto entityIterator = bitwiseNames.begin();
+    std::uint64_t delta;
+
+    while( entityIterator != bitwiseNames.end() ) {
+        // write delta //
+        delta = * entityIterator;
+        outputFile.put( delta );
+
+        // write ascii name //
+        for( std::uint64_t i = 0; i < delta || entityIterator != bitwiseNames.end(); i++ ) {
+            std::advance( entityIterator, 1 );
+            outputFile.put( * entityIterator );
+        }
+    }
+}
+
 void Archive::m_writeCatalog( std::ofstream & outputFile ) {
     std::list< std::uint64_t > bitwiseCatalog = m_catalog.bitwiseCatalog();
-    std::list< std::uint64_t > bitwiseFolderNames = m_catalog.bitwiseNames(
-        std::filesystem::file_type::directory );
-    std::list< std::uint64_t > bitwiseFileNames = m_catalog.bitwiseNames(
-        std::filesystem::file_type::regular );
 
-    std::filesystem::file_type type;
+    std::uint64_t folderNameSize = m_catalog.nameSize( std::filesystem::file_type::directory );
+    std::uint64_t fileNameSize   = m_catalog.nameSize( std::filesystem::file_type::regular );
 
     for( std::uint64_t i : bitwiseCatalog ) {
-        type = ( i & FOLDER_FLAG ? std::filesystem::file_type::directory
-                                 : std::filesystem::file_type::regular );
-        std::cout << std::bitset< 8 >( i ) << " : " << m_catalog.nameSize( type ) << "   ";
-        outputFile.write( reinterpret_cast< char * >( i ), m_catalog.nameSize( type ) );
+        outputFile.write( reinterpret_cast< char * >( & i ),
+                          i & FOLDER_FLAG ? folderNameSize : fileNameSize );
     }
-    std::cout << std::endl;
 }
 
 void Archive::m_writeFiles( std::ofstream & outputFile ) {
@@ -109,14 +123,17 @@ void Archive::pack( std::string           archiveName,
         return;
 
     m_writeGeneral( outputFile );
+
     m_writeCatalog( outputFile );
+
+    m_writeNames( outputFile, std::filesystem::file_type::directory );
+    m_writeNames( outputFile, std::filesystem::file_type::regular );
+
     m_writeFiles( outputFile );
 
     outputFile.close();
 }
 
-void Archive::extract(
-    std::filesystem::path destGlobalPath
-    ) {
+void Archive::extract( std::filesystem::path destGlobalPath ) {
 
 }

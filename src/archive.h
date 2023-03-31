@@ -26,6 +26,7 @@ private:
 
 private:
     void m_writeGeneral( std::ofstream & outputFile );
+    void m_writeNames( std::ofstream & outputFile, std::filesystem::file_type type );
     void m_writeCatalog( std::ofstream & outputFile );
     void m_writeFiles( std::ofstream & outputFile );
 

@@ -81,21 +81,23 @@ std::list< std::uint64_t > Catalog::bitwiseCatalog() {
 std::list< std::uint64_t > Catalog::bitwiseNames( std::filesystem::file_type type ) {
     std::list< std::uint64_t > result;
     std::vector< std::string > srcNames;
-    std::uint64_t              srcNameSize;
+    std::uint64_t              srcNameSize = nameSize( type );
 
     switch( type ) {
         case std::filesystem::file_type::directory:
             srcNames = m_folderNames;
-            srcNameSize = nameSize( std::filesystem::file_type::directory );
             break;
         case std::filesystem::file_type::regular:
             srcNames = m_fileNames;
-            srcNameSize = nameSize( std::filesystem::file_type::regular );
             break;
     }
+
     for( std::uint64_t i = 0; i < srcNames.size(); i++ ) {
-        result.push_back( srcNames[ i ].size() + srcNameSize );
-        result.push_back( i );
+        // delta to next //
+        result.push_back( srcNames[ i ].size() );
+//      result.push_back( i );
+
+        // ascii name //
         for( char c : srcNames[ i ] )
             result.push_back( static_cast< std::uint64_t >( c ) );
     }
@@ -103,6 +105,7 @@ std::list< std::uint64_t > Catalog::bitwiseNames( std::filesystem::file_type typ
 }
 
 std::uint64_t Catalog::nameSize( std::filesystem::file_type type ) {
+    std::uint64_t result = 0;
     std::uint64_t srcNameSize;
     switch( type ) {
         case std::filesystem::file_type::directory:
@@ -112,8 +115,11 @@ std::uint64_t Catalog::nameSize( std::filesystem::file_type type ) {
             srcNameSize = m_fileId;
             break;
     }
-    std::cout << "SRC: " << std::log2( srcNameSize ) << "  ";
-    return static_cast< std::uint64_t >( std::log2( srcNameSize ) + 1 );
+    while( srcNameSize ) {
+        srcNameSize = srcNameSize >> 8;
+        result++;
+    }
+    return result;
 }
 
 
