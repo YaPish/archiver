@@ -27,25 +27,25 @@ std::list< std::uint64_t > Catalog::m_getFolderContent( std::filesystem::path fo
         switch( entity.status().type() ) {
             case std::filesystem::file_type::directory:
                 std::advance( entityPos, folderPos++ );
-                result.insert( entityPos, ( m_folderId++ << 2 ) | FOLDER_FLAG );
+                result.insert( entityPos, CODE_FOLDER( m_folderId++ ) );
                 m_folderNames.push_back( entity.path().filename() );
                 break;
             case std::filesystem::file_type::regular:
                 std::advance( entityPos, folderPos + filePos++ );
-                result.insert( entityPos, ( m_fileId++ << 2 ) | FILE_FLAG );
+                result.insert( entityPos, CODE_FILE( m_fileId++ ) );
                 m_fileNames.push_back( entity.path().filename() );
                 break;
         }
     }
 
     if( filePos || !( folderPos && filePos ) )
-        result.back() |= FOLDER_END;
+        result.back() = CODE_END( result.back() );
     return result;
 }
 
 std::list< std::uint64_t > Catalog::bitwiseCatalog() {
     m_folderNames.clear(); m_fileNames.clear();
-    m_folderId = 0; m_fileId = 0;
+    m_folderId = 1; m_fileId = 1;
 
     std::uint64_t              targetFolderId = 0;
     std::list< std::uint64_t > result;
@@ -56,24 +56,25 @@ std::list< std::uint64_t > Catalog::bitwiseCatalog() {
     result.insert( folder, folderContent.begin(), folderContent.end() );
 
     for( auto & entity : std::filesystem::recursive_directory_iterator( m_localRoot ) ) {
-        if( entity.status().type() != std::filesystem::file_type::directory )
-            continue;
+        if( entity.status().type() != std::filesystem::file_type::directory ) continue;
 
         for( targetFolderId = 0; targetFolderId < m_folderNames.size(); targetFolderId++ ) {
             if( m_folderNames[ targetFolderId ] == entity.path().filename() ) break;
         }
-        targetFolderId = ( ( targetFolderId << 2 ) | FOLDER_FLAG );
+        targetFolderId = CODE_FOLDER( targetFolderId );
 
+        folder = std::find( result.begin(), result.end(), targetFolderId );
         folderContent = m_getFolderContent( entity.path() );
+
         if( folderContent.empty() ) {
-            * folder |= FOLDER_END;
+            * folder = CODE_END( * folder );
         } else {
             std::advance( folder, 1 );
             result.insert( folder, folderContent.begin(), folderContent.end() );
         }
     }
     // ?
-    std::filesystem::remove_all( m_localRoot );
+//    std::filesystem::remove_all( m_localRoot );
 
     return result;
 }
@@ -95,7 +96,6 @@ std::list< std::uint64_t > Catalog::bitwiseNames( std::filesystem::file_type typ
     for( std::uint64_t i = 0; i < srcNames.size(); i++ ) {
         // delta to next //
         result.push_back( srcNames[ i ].size() );
-//      result.push_back( i );
 
         // ascii name //
         for( char c : srcNames[ i ] )
@@ -116,7 +116,7 @@ std::uint64_t Catalog::nameSize( std::filesystem::file_type type ) {
             break;
     }
     while( srcNameSize ) {
-        srcNameSize = srcNameSize >> 8;
+        srcNameSize = srcNameSize >> ( result ? 8 : 6 );
         result++;
     }
     return result;

@@ -13,26 +13,29 @@ class Archive {
 private:
     std::string m_path;
 
-    std::bitset< ARCHIVE_SECTION_COUNT > m_sectionChange;
-
     struct {
         Version            minVersion;
         CompressMethod     defaultCompressMethod;
         EncodeMethod       defaultEncodeMethod;
-        std::bitset< 8 >   wordSize;
+        std::uint8_t       bitwiseNameSize;
     } m_general;
+
+    std::list< std::uint64_t > m_bitwiseCatalog;
+    std::vector< std::string > m_folderNames;
+    std::vector< std::string > m_fileNames;
 
     Catalog m_catalog;
 
 private:
     void m_writeGeneral( std::ofstream & outputFile );
-    void m_writeNames( std::ofstream & outputFile, std::filesystem::file_type type );
     void m_writeCatalog( std::ofstream & outputFile );
+    void m_writeNames( std::ofstream & outputFile, std::filesystem::file_type type );
     void m_writeFiles( std::ofstream & outputFile );
 
-    void m_readGeneral( std::ofstream & inputFile );
-    void m_readCatalog( std::ofstream & inputFile );
-    void m_readFiles( std::ofstream & inputFile );
+    void m_readGeneral( std::ifstream & inputFile );
+    void m_readCatalog( std::ifstream & inputFile );
+    void m_readNames( std::ifstream & inputFile, std::filesystem::file_type type );
+    void m_readFiles( std::ifstream & inputFile );
 
 public:
     Archive( Version        minVersion            = VERSION_DEV_BETA,
@@ -65,14 +68,13 @@ public:
     );
 
 
-    void updatePack();
     void pack(
         std::string           archiveName,
         std::filesystem::path destGlobalPath
     );
 
     void extract(
-        std::filesystem::path destGlobalPath
+        std::filesystem::path srcGlobalPath
     );
 };
 
