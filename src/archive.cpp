@@ -1,210 +1,414 @@
-#include <iostream>
 #include <fstream>
+#include <iomanip>
 #include <filesystem>
+#include <cstring>
 
 #include "archive.h"
 
-Archive::Archive(
-    Version        minVersion,
-    CompressMethod defaultCompressMethod,
-    EncodeMethod   defaultEncodeMethod ) {
-    m_general.minVersion            = minVersion;
-    m_general.defaultCompressMethod = defaultCompressMethod;
-    m_general.defaultEncodeMethod   = defaultEncodeMethod;
+
+///////////////////////////////////////////////////////////////////////////////
+//                                Properties                                 //
+///////////////////////////////////////////////////////////////////////////////
+
+std::uint64_t Archive::m_idSize( std::filesystem::file_type type ) {
+    std::uint64_t result = 0;
+    std::uint64_t srcNameSize;
+    switch( type ) {
+        case std::filesystem::file_type::directory:
+            srcNameSize = m_folderId;
+            break;
+        case std::filesystem::file_type::regular:
+            srcNameSize = m_fileId;
+            break;
+    }
+    while( srcNameSize ) {
+        srcNameSize = srcNameSize >> ( result ? 8 : 6 ); // reserving 2 bits //
+        result++;
+    }
+    return result;
 }
 
-Archive::Archive( std::filesystem::path srcGlobalPath ) {
 
+///////////////////////////////////////////////////////////////////////////////
+//                              Folder Content                               //
+///////////////////////////////////////////////////////////////////////////////
+
+std::list< std::uint64_t > Archive::m_bitwiseFolderContent( std::filesystem::path folderPath ) {
+    std::list< std::uint64_t > result;
+    std::uint64_t              folderPos = 0, filePos = 0;
+
+    if( !std::filesystem::is_directory( folderPath ) ) {
+        result.insert( result.begin(), CODE_FILE( m_fileId ) );
+        return result;
+    }
+
+    if ( std::filesystem::is_empty( folderPath ) )
+        return result;
+
+    for( auto & entity : std::filesystem::directory_iterator( folderPath ) ) {
+        auto entityPos = result.begin();
+
+        switch( entity.status().type() ) {
+            case std::filesystem::file_type::directory:
+                std::advance( entityPos, folderPos++ );
+                result.insert( entityPos, CODE_FOLDER( m_folderId++ ) );
+                break;
+            case std::filesystem::file_type::regular:
+                std::advance( entityPos, folderPos + filePos++ );
+                result.insert( entityPos, CODE_FILE( m_fileId++ ) );
+                break;
+        }
+    }
+
+    if( filePos || !( folderPos && filePos ) )
+        result.back() = CODE_END( result.back() );
+    return result;
 }
 
+void Archive::m_nameFolderContent( std::filesystem::path folderPath ) {
+    if( !std::filesystem::is_directory( folderPath ) ) {
+        m_fileNames.push_back( folderPath.parent_path().filename() );
+        return;
+    }
 
-///////////////////////////
-// Write to Archive file //
-///////////////////////////
+    if ( std::filesystem::is_empty( folderPath ) )
+        return;
 
-void Archive::m_writeGeneral( std::ofstream & outputFile ) {
-    if( m_general.minVersion >= VERSION_DEV_BETA ) {
-        outputFile.put( m_general.minVersion );
-        outputFile.put( m_general.defaultCompressMethod );
-        outputFile.put( m_general.defaultEncodeMethod );
-        // TODO
+    for( auto & entity : std::filesystem::directory_iterator( folderPath ) ) {
+        ( std::filesystem::is_directory( entity.path() ) ? m_folderNames : m_fileNames )
+            .push_back( entity.path().filename() );
     }
 }
 
-void Archive::m_writeNames( std::ofstream & outputFile, std::filesystem::file_type type ) {
-    std::list< std::uint64_t > bitwiseNames = m_catalog.bitwiseNames( type );
-    std::uint64_t              nameSize = m_catalog.nameSize( type );
 
+
+///////////////////////////////////////////////////////////////////////////////
+//                             Get bitwise view                              //
+///////////////////////////////////////////////////////////////////////////////
+
+std::list< std::uint64_t > Archive::m_bitwiseCatalog() {
+    m_folderId = m_fileId = 1;
+
+    std::uint64_t              targetFolderId;
+    std::list< std::uint64_t > result;
+    std::list< std::uint64_t > folderContent;
+
+    auto folder = result.begin();
+    folderContent = m_bitwiseFolderContent( m_srcPath );
+    result.insert( folder, folderContent.begin(), folderContent.end() );
+    if( !std::filesystem::is_directory( m_srcPath ) ) return result;
+
+    for( auto & entity : std::filesystem::recursive_directory_iterator( m_srcPath ) ) {
+        if( !std::filesystem::is_directory( entity.path() ) ) continue;
+
+        auto targetIterator = m_folderNames.begin();
+        for( targetFolderId = 1; targetFolderId <= m_folderNames.size(); targetFolderId++ ) {
+            if( * std::next( targetIterator, targetFolderId - 1 ) == entity.path().filename() )
+                break;
+        }
+        targetFolderId = CODE_FOLDER( targetFolderId );
+
+        folder        = std::find( result.begin(), result.end(), targetFolderId );
+        folderContent = m_bitwiseFolderContent( entity.path() );
+
+        if( folderContent.empty() ) {
+            * folder = CODE_END( * folder );
+        } else {
+            std::advance( folder, 1 );
+            result.insert( folder, folderContent.begin(), folderContent.end() );
+        }
+    }
+
+    return result;
+}
+
+std::list< std::uint64_t > Archive::m_bitwiseNames() {
+    std::list< std::uint64_t > result;
+
+    m_nameFolderContent( m_srcPath );
+    if( std::filesystem::is_directory( m_srcPath ) ) {
+        for( auto & entity : std::filesystem::recursive_directory_iterator( m_srcPath ) ) {
+            if( !std::filesystem::is_directory( entity.path() ) ) continue;
+            m_nameFolderContent( entity.path() );
+        }
+    }
+
+    // folders //
+    for( std::uint64_t i = 0; i < m_folderNames.size(); i++ ) {
+        // delta to next //
+        result.push_back( std::next( m_folderNames.begin(), i )->size() );
+
+        // ascii name //
+        for( char c : * std::next( m_folderNames.begin(), i ) )
+            result.push_back( static_cast< std::uint64_t >( c ) );
+    }
+
+    result.push_back( static_cast< std::uint64_t >( 0 ) );
+
+    // files //
+    for( std::uint64_t i = 0; i < m_fileNames.size(); i++ ) {
+        // delta to next //
+        result.push_back( std::next( m_fileNames.begin(), i )->size() );
+
+        // ascii name //
+        for( char c : * std::next( m_fileNames.begin(), i ) )
+            result.push_back( static_cast< std::uint64_t >( c ) );
+    }
+
+    return result;
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                         Normalise bitwise view                            //
+///////////////////////////////////////////////////////////////////////////////
+
+void Archive::m_normaliseCatalog( std::list< std::uint64_t > bitwiseView ) {
+    if( m_folderNames.empty() && m_fileNames.empty() )
+        return;
+
+    std::filesystem::path flowPath = m_srcPath;
+    for( std::uint64_t i : bitwiseView ) {
+        std::filesystem::file_type entityType
+            = ( IS_FOLDER( i ) ? std::filesystem::file_type::directory
+                               : std::filesystem::file_type::regular );
+
+        std::string entityName
+            = ( IS_FOLDER( i ) ? *std::next( m_folderNames.begin(), GET_ID( i ) - 1 )
+                               : *std::next( m_fileNames.begin(),   GET_ID( i ) - 1 ) );
+
+        std::filesystem::path entityPath = flowPath / entityName;
+        switch( entityType ) {
+            case std::filesystem::file_type::directory:
+                std::filesystem::create_directory( entityPath );
+                break;
+            case std::filesystem::file_type::regular:
+                std::ofstream newFile( entityPath );
+                break;
+        }
+
+        if( IS_END( i ) && !IS_FOLDER( i ) )
+            flowPath = flowPath.parent_path();
+        else if( IS_END( i ) && IS_FOLDER( i ) )
+            continue;
+        else if( !IS_END( i ) && IS_FOLDER( i ) )
+            flowPath = flowPath / entityName;
+    }
+}
+
+void Archive::m_normaliseNames( std::list< std::uint64_t > bitwiseView ) {
+    m_folderNames.clear(); m_fileNames.clear();
+    m_folderId = m_fileId = 0;
+    bool folderStream = true;
+
+    for( auto i = bitwiseView.begin(); i != bitwiseView.end(); std::advance( i, 1 ) ) {
+        std::string   name;
+        std::uint64_t nameSize = * i;
+        if( !nameSize ) {
+            folderStream = false;
+            continue;
+        }
+
+        for( ; nameSize != 0; nameSize-- ) {
+            std::advance( i, 1 );
+            name.push_back( static_cast< char >( * i ) );
+        }
+
+        if( folderStream ) {
+            m_folderNames.push_back( name );
+            m_folderId++;
+        } else {
+            m_fileNames.push_back( name );
+            m_fileId++;
+        }
+    }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                              Pack Archive file                            //
+///////////////////////////////////////////////////////////////////////////////
+
+void Archive::m_packSignature( void ) {
+    m_archiveFile.write( ARCHIVE_FLAG, sizeof( ARCHIVE_FLAG ) - 1 );
+}
+
+void Archive::m_packNames( void ) {
+    std::list< std::uint64_t > bitwiseNames = m_bitwiseNames();
     auto entity = bitwiseNames.begin();
-    while( entity != bitwiseNames.end() ) {
-        for( std::uint64_t i = 0; i < * entity || entity != bitwiseNames.end(); i++ ) {
-            outputFile.put( * entity );
-            std::advance( entity, 1 );
-        }
+    for( ; entity != bitwiseNames.end(); std::advance( entity, 1 ) ) {
+        m_archiveFile.put( * entity );
     }
-    outputFile.put( 0x0 );
+    m_archiveFile.put( 0x0 );
 }
 
-void Archive::m_writeCatalog( std::ofstream & outputFile ) {
-    m_bitwiseCatalog = m_catalog.bitwiseCatalog();
+void Archive::m_packCatalog( void ) {
+    std::list< std::uint64_t > bitwiseCatalog = m_bitwiseCatalog();
 
-    std::uint64_t folderNameSize = m_catalog.nameSize( std::filesystem::file_type::directory );
-    std::uint64_t fileNameSize   = m_catalog.nameSize( std::filesystem::file_type::regular );
+    std::uint64_t folderIdSize = m_idSize( std::filesystem::file_type::directory );
+    std::uint64_t fileIdSize   = m_idSize( std::filesystem::file_type::regular );
 
-    std::uint8_t bitwiseNameSize = ( static_cast< std::uint8_t >( folderNameSize ) << 4 )
-                                 | ( static_cast< std::uint8_t >( fileNameSize ) & 0xF );
-    outputFile.put( bitwiseNameSize ); // add to general about names size //
+    std::uint8_t bitwiseIdSize = ( static_cast< std::uint8_t >( folderIdSize ) << 4 )
+                               | ( static_cast< std::uint8_t >( fileIdSize ) & 0xF );
+    m_archiveFile.put( bitwiseIdSize ); // add to general about names size //
 
-    std::uint64_t nameSize;
-    for( std::uint64_t i : m_bitwiseCatalog ) {
+    for( std::uint64_t i : bitwiseCatalog ) {
+        std::uint64_t idSize;
         if( i & FOLDER_FLAG ) {
-            i |= i >> ( ( 8 - folderNameSize ) * 8 );
-            nameSize = folderNameSize;
+            i |= i >> ( ( 8 - folderIdSize ) * 8 );
+            idSize = folderIdSize;
         } else { // else file_flag //
-            i |= i >> ( ( 8 - fileNameSize ) * 8 );
-            nameSize = fileNameSize;
+            i |= i >> ( ( 8 - fileIdSize ) * 8 );
+            idSize = fileIdSize;
         }
-        outputFile.write( reinterpret_cast< char * >( & i ), nameSize );
+        m_archiveFile.write( reinterpret_cast< char * >( &i ), idSize );
     }
-    outputFile.put( 0x0 );
+    m_archiveFile.put( 0x0 );
 }
 
-void Archive::m_writeFiles( std::ofstream & outputFile ) {
-    // TODO
+void Archive::m_packSingleFile( std::filesystem::path filePath ) {
+    std::filebuf fileBuf;
+    fileBuf.open( filePath, std::ios::binary | std::ios::in );
+    if( !fileBuf.is_open() ) return; // TODO: error
+
+    std::uintmax_t fileSize = std::filesystem::file_size( filePath );
+    m_archiveFile << std::setw( sizeof( std::uintmax_t ) );
+    m_archiveFile.fill( 0x0 );
+    m_archiveFile << reinterpret_cast< char * >( &fileSize );
+    m_archiveFile << &fileBuf;
+
+    fileBuf.close();
+}
+
+void Archive::m_packFiles( void ) {
+    if( !std::filesystem::is_directory( m_srcPath ) ) {
+        m_packSingleFile( m_srcPath );
+        return;
+    }
+
+    for( auto & entity : std::filesystem::recursive_directory_iterator( m_srcPath ) ) {
+        if( std::filesystem::is_directory( entity.path() ) ) continue;
+        m_packSingleFile( entity.path() );
+    }
 }
 
 
-////////////////////////////
-// Read from Archive file //
-////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+//                           Extract Archive file                            //
+///////////////////////////////////////////////////////////////////////////////
 
-void Archive::m_readGeneral( std::ifstream & inputFile ) {
-    m_general.minVersion = static_cast< Version >( inputFile.get() );
-
-    if( m_general.minVersion >= VERSION_DEV_BETA ) {
-        m_general.defaultCompressMethod = static_cast< CompressMethod >( inputFile.get() );
-        m_general.defaultEncodeMethod   = static_cast< EncodeMethod >( inputFile.get() );
+void Archive::m_extractSignature( void ) {
+    char * archiveFlag = new char[ sizeof( ARCHIVE_FLAG ) ];
+    m_archiveFile.read( archiveFlag, sizeof( ARCHIVE_FLAG ) - 1 );
+    if( std::strcmp( archiveFlag, ARCHIVE_FLAG ) != 0 ) {
+        m_archiveFile.close();
     }
+}
+
+void Archive::m_extractNames( void ) {
+    std::list< std::uint64_t > bitwiseNames;
+    std::uint64_t letter;
+    for( std::uint8_t i = 0; i < 2; i++ ) {
+        if( i == 1 ) bitwiseNames.push_back( 0x0 );
+        while( ( letter = m_archiveFile.get() ) != 0x0 ) {
+            bitwiseNames.push_back( letter );
+        }
+    }
+    m_normaliseNames( bitwiseNames );
+}
+
+void Archive::m_extractCatalog( void ) {
+    std::list< std::uint64_t > bitwiseCatalog;
 
     // last general byte //
-    m_general.bitwiseNameSize = static_cast< std::uint8_t >( inputFile.get() );
-}
+    std::uint8_t bitwiseIdSize = m_archiveFile.get();
 
-void Archive::m_readNames( std::ifstream & inputFile, std::filesystem::file_type type ) {
-    std::string  name;
-    std::uint8_t nameSize = inputFile.get();
-    for( ; nameSize != 0; nameSize = inputFile.get() ) {
-        inputFile.read( reinterpret_cast< char * >( & name ), nameSize );
-        m_folderNames.push_back( name );
-    }
-}
+    std::uint8_t folderIdSize  = bitwiseIdSize >> 4;
+    std::uint8_t fileIdSize    = bitwiseIdSize & 0xF;
 
-void Archive::m_readCatalog( std::ifstream & inputFile ) {
-    // check if no move ? //
-    std::uint8_t folderNameSize = m_general.bitwiseNameSize >> 4;
-    std::uint8_t fileNameSize   = m_general.bitwiseNameSize & 0xF;
-
-    std::uint8_t               nameSize;
+    std::uint8_t               idSize;
     std::filesystem::file_type type;
 
-    std::uint64_t bitwiseEntity = inputFile.get();
-    for( ; bitwiseEntity != 0; bitwiseEntity = inputFile.get() ) {
-        std::uint64_t tmp = bitwiseEntity << 0x38;
+    for( std::uint64_t bitwiseEntity = m_archiveFile.get(); bitwiseEntity != 0x0;
+                       bitwiseEntity = m_archiveFile.get() ) {
+        std::uint8_t  idSize = ( bitwiseEntity & FOLDER_FLAG ) ? folderIdSize : fileIdSize;
+        std::uint64_t entityFlag = GET_FLAG8( bitwiseEntity ) << 0x38;
 
-        nameSize = ( bitwiseEntity | FOLDER_FLAG ? folderNameSize : fileNameSize );
-        type     = ( bitwiseEntity | FOLDER_FLAG ? std::filesystem::file_type::directory
-                                                 : std::filesystem::file_type::regular );
+        bitwiseEntity = GET_ID8( bitwiseEntity );
+        std::uint64_t firstByte = bitwiseEntity << ( ( idSize - 1 ) * 0x8 );
 
-        inputFile.read( reinterpret_cast< char * >( & bitwiseEntity ), nameSize - 1 );
-        bitwiseEntity |= tmp;
-
-        m_bitwiseCatalog.push_back( bitwiseEntity );
+        m_archiveFile.read( reinterpret_cast< char * >( &bitwiseEntity ), idSize - 1 );
+        bitwiseCatalog.push_back( firstByte | bitwiseEntity | entityFlag );
     }
+
+    m_normaliseCatalog( bitwiseCatalog );
 }
 
-void Archive::m_readFiles( std::ifstream & inputFile ) {
-    // TODO
+#define BUFFER_SIZE 4096
+void Archive::m_extractFiles( void ) {
+    std::fstream file;
+    char *       fileBuf = new char[ BUFFER_SIZE ];
+    for( auto & entity : std::filesystem::recursive_directory_iterator( m_srcPath ) ) {
+        if( std::filesystem::is_directory( entity.path() ) ) continue;
+
+        file.open( entity.path(), std::ios::binary | std::ios::out );
+        if( !file.is_open() ) return; // TODO: error
+
+        std::uintmax_t fileSize = 0;
+        for( std::uint8_t i = 0; i < sizeof( std::uintmax_t ); i++ ) {
+            fileSize |= static_cast< std::uintmax_t >( m_archiveFile.get() )
+                     << ( ( sizeof( std::uintmax_t ) * 0x8 ) - 0x8 * ( i + 1 ) );
+        }
+
+        while( fileSize >= BUFFER_SIZE ) {
+            m_archiveFile.read( fileBuf, BUFFER_SIZE );
+            file.write( fileBuf, BUFFER_SIZE );
+            fileSize -= BUFFER_SIZE;
+        }
+        m_archiveFile.read( fileBuf, fileSize );
+        file.write( fileBuf, fileSize );
+
+        file.close();
+    }
+    delete[] fileBuf;
+}
+#undef BUFFER_SIZE
+
+
+///////////////////////////////////////////////////////////////////////////////
+//                                Manipulation                               //
+///////////////////////////////////////////////////////////////////////////////
+
+void Archive::pack( std::filesystem::path srcPath ) {
+    m_srcPath = std::filesystem::absolute( srcPath ) / "";
+    std::filesystem::path archivePath = m_srcPath.parent_path();
+    archivePath.replace_extension( ARCHIVE_FLAG );
+    archivePath = archivePath.filename();
+
+    m_archiveFile.open( archivePath, std::ios::binary | std::ios::out );
+    if( !m_archiveFile.is_open() ) return;
+    m_packSignature();
+    m_packNames();
+    m_packCatalog();
+    m_packFiles();
+
+    m_archiveFile.close();
 }
 
+void Archive::extract( std::filesystem::path archivePath ) {
+    if( !std::filesystem::is_regular_file( archivePath ) ) return;
+    m_archiveFile.open( archivePath, std::ios::binary | std::ios::in );
+    if( !m_archiveFile.is_open() ) return;
 
-/////////////////////////////
-// Get General Information //
-/////////////////////////////
+    m_extractSignature();
+    if( !m_archiveFile.is_open() ) return;
 
-Version Archive::minVersion() const {
-    return m_general.minVersion;
-}
+    m_srcPath = archivePath.filename().stem();
+    std::filesystem::create_directory( m_srcPath );
 
-CompressMethod Archive::defaultCompressMethod() const {
-    return m_general.defaultCompressMethod;
-}
+    m_extractNames();
+    m_extractCatalog();
+    m_extractFiles();
 
-EncodeMethod Archive::defaultEncodeMethod() const {
-    return m_general.defaultEncodeMethod;
-}
-
-std::uint8_t Archive::countBytesFolderId() const {
-
-}
-
-std::uint8_t Archive::countBytesFileId() const {
-
-}
-
-
-//////////////////
-// Manipulation //
-//////////////////
-
-void Archive::add( std::filesystem::file_type pathType,
-                   std::filesystem::path srcGlobalPath,
-                   std::filesystem::path destLocalPath ) {
-    // TODO
-    m_catalog.add( pathType, srcGlobalPath, destLocalPath );
-}
-
-void Archive::remove( std::filesystem::path srcLocalPath ) {
-    m_catalog.remove( srcLocalPath );
-}
-
-void Archive::move( std::filesystem::path srcLocalPath,
-                    std::filesystem::path destLocalPath ) {
-
-}
-
-void Archive::pack( std::string           archiveName,
-                    std::filesystem::path destGlobalPath ) {
-    if( !std::filesystem::is_directory( destGlobalPath ) )
-        return;
-
-    std::ofstream outputFile( destGlobalPath / archiveName,
-                              std::ios::binary | std::ios::out );
-    if ( !outputFile.is_open() )
-        return;
-
-    m_writeGeneral( outputFile );
-    m_writeCatalog( outputFile );
-    m_writeNames( outputFile, std::filesystem::file_type::directory );
-    m_writeNames( outputFile, std::filesystem::file_type::regular );
-    m_writeFiles( outputFile );
-
-    outputFile.close();
-}
-
-void Archive::extract( std::filesystem::path srcGlobalPath ) {
-    if( !std::filesystem::is_regular_file( srcGlobalPath ) ||
-        !std::filesystem::exists( srcGlobalPath ) )
-        return;
-
-    std::ifstream inputFile( srcGlobalPath, std::ios::binary | std::ios::in );
-    if( !inputFile.is_open() )
-        return;
-
-    m_readGeneral( inputFile );
-    m_readCatalog( inputFile );
-    m_readNames( inputFile, std::filesystem::file_type::directory );
-    m_readNames( inputFile, std::filesystem::file_type::regular );
-    m_readFiles( inputFile );
-
-    inputFile.close();
+    m_archiveFile.close();
 }

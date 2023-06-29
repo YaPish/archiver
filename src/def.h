@@ -1,47 +1,37 @@
 #ifndef _DEF_H_
 #define _DEF_H_
 
+#define ARCHIVE_FLAG "yap"
+
 #define FILE_FLAG   0x0  // 0000 0000 //
 #define FOLDER_FLAG 0x80 // 1000 0000 //
 #define FOLDER_END  0x40 // 0100 0000 //
 
-#define CODE_FOLDER( id ) ( id | ( static_cast< std::uint64_t >( FOLDER_FLAG ) << 0x38 ) ) // for uint64 id
-#define CODE_FILE( id )   ( id | ( static_cast< std::uint64_t >( FILE_FLAG )   << 0x38 ) ) // for uint64 id
-#define CODE_END( id )    ( id | ( static_cast< std::uint64_t >( FOLDER_END )  << 0x38 ) ) // for uint64 id
 
-#define GET_ID( code )    ( code & 0x3fffffffffffffff )     // for uint64 code
+///////////////////////////////////////////////////////////////////////////////
+//                                 64 Bits                                   //
+///////////////////////////////////////////////////////////////////////////////
 
-//////////////////
-//    Version   //
-// Size: 1 byte //
-//////////////////
-enum Version {
-    VERSION_DEV_BETA = 0
-};
+#define CODE_FOLDER( __ID__ )  ( __ID__ | ( static_cast< std::uint64_t >( FOLDER_FLAG ) << 0x38 ) )
+#define CODE_FILE( __ID__ )    ( __ID__ | ( static_cast< std::uint64_t >( FILE_FLAG )   << 0x38 ) )
+#define CODE_END( __ID__ )     ( __ID__ | ( static_cast< std::uint64_t >( FOLDER_END )  << 0x38 ) )
 
-////////////////////
-// CompressMethod //
-//  Size: 1 byte  //
-////////////////////
-enum CompressMethod {
-    COMPRESS_METHOD_NON = 0,
-    COMPRESS_METHOD_RLE = 1
-};
+#define IS_FOLDER( __CODE__ )  ( __CODE__ & ( static_cast< std::uint64_t >( FOLDER_FLAG ) << 0x38 ) )
+#define IS_END( __CODE__ )     ( __CODE__ & ( static_cast< std::uint64_t >( FOLDER_END )  << 0x38 ) )
 
-////////////////////
-// EncodingMethod //
-//  Size: 1 byte  //
-////////////////////
-enum EncodeMethod {
-    ENCODE_METHOD_NON = 0
-};
+#define GET_ID( __CODE__ )     ( __CODE__ & 0x3fffffffffffffff )
+#define GET_FLAG( __CODE__ )   ( __CODE__ & ( static_cast< std::uint64_t >( FOLDER_FLAG | FOLDER_END ) << 0x38 ) )
 
 
-#define ARCHIVE_SECTION_COUNT 3
-enum ArchiveSection {
-    ARCHIVE_SECTION_GENERAL = 1,
-    ARCHIVE_SECTION_CATALOG = 2,
-    ARCHIVE_SECTION_FILES   = 4
-};
+///////////////////////////////////////////////////////////////////////////////
+//                                  8 Bits                                   //
+///////////////////////////////////////////////////////////////////////////////
+
+#define IS_FOLDER8( __CODE__ ) ( __CODE__ & FOLDER_FLAG )
+#define IS_END8( __CODE__ )    ( __CODE__ & FOLDER_END )
+
+#define GET_ID8( __CODE__ )    ( __CODE__ & 0x3f )
+#define GET_FLAG8( __CODE__ )  ( __CODE__ & ( FOLDER_FLAG | FOLDER_END ) )
+
 
 #endif

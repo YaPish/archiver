@@ -2,80 +2,53 @@
 #define _ARCHIVE_H_
 
 #include <cstdint>
-#include <bitset>
+#include <fstream>
 #include <filesystem>
+#include <list>
 
 #include "def.h"
-#include "catalog.h"
 
 
 class Archive {
 private:
-    std::string m_path;
+    std::filesystem::path    m_srcPath;
+    std::fstream             m_archiveFile;
 
-    struct {
-        Version            minVersion;
-        CompressMethod     defaultCompressMethod;
-        EncodeMethod       defaultEncodeMethod;
-        std::uint8_t       bitwiseNameSize;
-    } m_general;
+    std::uint64_t            m_folderId;
+    std::uint64_t            m_fileId;
 
-    std::list< std::uint64_t > m_bitwiseCatalog;
-    std::vector< std::string > m_folderNames;
-    std::vector< std::string > m_fileNames;
-
-    Catalog m_catalog;
+    std::list< std::string > m_folderNames;
+    std::list< std::string > m_fileNames;
 
 private:
-    void m_writeGeneral( std::ofstream & outputFile );
-    void m_writeCatalog( std::ofstream & outputFile );
-    void m_writeNames( std::ofstream & outputFile, std::filesystem::file_type type );
-    void m_writeFiles( std::ofstream & outputFile );
+    std::uint64_t              m_idSize( std::filesystem::file_type type );
 
-    void m_readGeneral( std::ifstream & inputFile );
-    void m_readCatalog( std::ifstream & inputFile );
-    void m_readNames( std::ifstream & inputFile, std::filesystem::file_type type );
-    void m_readFiles( std::ifstream & inputFile );
+    void                       m_normaliseCatalog( std::list< std::uint64_t > bitwiseView );
+    void                       m_normaliseNames( std::list< std::uint64_t > bitwiseView );
+
+    void                       m_nameFolderContent( std::filesystem::path folderPath );
+    std::list< std::uint64_t > m_bitwiseFolderContent( std::filesystem::path folderPath );
+
+    std::list< std::uint64_t > m_bitwiseCatalog( void );
+    std::list< std::uint64_t > m_bitwiseNames( void );
+
+
+    void m_packSignature( void );
+    void m_packCatalog( void );
+    void m_packNames( void );
+    void m_packSingleFile( std::filesystem::path filePath );
+    void m_packFiles( void );
+
+    void m_extractSignature( void );
+    void m_extractCatalog( void );
+    void m_extractNames( void );
+    void m_extractFiles( void );
 
 public:
-    Archive( Version        minVersion            = VERSION_DEV_BETA,
-             CompressMethod defaultCompressMethod = COMPRESS_METHOD_NON,
-             EncodeMethod   defaultEncodeMethod   = ENCODE_METHOD_NON );
+    Archive( void ) = default;
 
-    Archive( std::filesystem::path srcGlobalPath );
-
-    Version        minVersion() const;
-    CompressMethod defaultCompressMethod() const;
-    EncodeMethod   defaultEncodeMethod() const;
-
-    std::uint8_t   countBytesFolderId() const;
-    std::uint8_t   countBytesFileId() const;
-
-    bool           hasChange();
-
-
-    void add(
-        std::filesystem::file_type pathType,
-        std::filesystem::path srcGlobalPath,
-        std::filesystem::path destLocalPath
-    );
-    void remove(
-        std::filesystem::path srcLocalPath
-    );
-    void move(
-        std::filesystem::path srcLocalPath,
-        std::filesystem::path destLocalPath
-    );
-
-
-    void pack(
-        std::string           archiveName,
-        std::filesystem::path destGlobalPath
-    );
-
-    void extract(
-        std::filesystem::path srcGlobalPath
-    );
+    void pack( std::filesystem::path srcPath );
+    void extract( std::filesystem::path archivePath );
 };
 
 #endif
