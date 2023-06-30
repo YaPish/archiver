@@ -94,11 +94,19 @@ void Core::__exetest( int argc, char ** argv ) {
 ///////////////////////////////////////////////////////////////////////////////
 
 void Core::pack( std::filesystem::path srcPath ) {
+    MSG_LOG( "Pack " + srcPath.string() + " is running" );
     m_archive.pack( srcPath );
+    if( g_error != ERROR_NON )
+        return;
+    MSG_LOG( "Pack is finished" );
 }
 
 void Core::extract( std::filesystem::path archivePath ) {
+    MSG_LOG( "Extract " + archivePath.string() + " is running" );
     m_archive.extract( archivePath );
+    if( g_error != ERROR_NON )
+        return;
+    MSG_LOG( "Extract is finished" );
 }
 
 
@@ -116,7 +124,10 @@ void Core::extract( std::filesystem::path archivePath ) {
 
 
 void Core::compress( std::filesystem::path srcPath, std::string method ) {
-    if( std::filesystem::is_directory( srcPath ) ) return; // TODO: error
+    if( std::filesystem::is_directory( srcPath ) ) {
+        MSG_ERR( "Invalid to compress directory " + srcPath.string(), ERROR_DIRECTORY );
+        return;
+    }
 
     // Hide src path
     std::filesystem::path hiddenPath, shownPath = srcPath;
@@ -127,7 +138,11 @@ void Core::compress( std::filesystem::path srcPath, std::string method ) {
     std::fstream src, dest;
     src.open( hiddenPath, std::ios::binary | std::ios::in );
     dest.open( shownPath, std::ios::binary | std::ios::out );
-    if( !src.is_open() || !dest.is_open() ) return; // TODO: error
+    if( !src.is_open() || !dest.is_open() ) {
+        MSG_ERR( "Unable to open files " + hiddenPath.string() + " or "
+                 + shownPath.string(), ERROR_OPEN_FILE );
+        return;
+    }
 
     // Set method signature
     std::uint8_t methodSize = method.size();
@@ -137,21 +152,30 @@ void Core::compress( std::filesystem::path srcPath, std::string method ) {
     // Exe method
     std::string command = "/usr/local/share/yap/Methods/";
     command += ( method + "/./compress " + hiddenPath.c_str() + " " + shownPath.c_str() );
+    MSG_LOG( "Compress file is running: " + shownPath.string() );
     int methodError = std::system( command.c_str() );
     src.close(); dest.close();
     switch( methodError ) {
         case 0:
             std::filesystem::remove( hiddenPath );
+            MSG_LOG( "Succesful compress file " + shownPath.string() + " by "
+                     + method + " method" );
             break;
         default:
             std::filesystem::remove( shownPath );
             std::filesystem::rename( hiddenPath, shownPath );
+            MSG_ERR( "Compress file " + shownPath.string() + " aborted",
+                     ERROR_COMPRESS );
             break;
     }
 }
 
 void Core::decompress( std::filesystem::path srcPath ) {
-    if( std::filesystem::is_directory( srcPath ) ) return; // TODO: error
+    if( std::filesystem::is_directory( srcPath ) ) {
+        MSG_ERR( "Invalid to decompress directory " + srcPath.string(),
+                 ERROR_DIRECTORY );
+        return;
+    }
 
     // Hide src path
     std::filesystem::path hiddenPath, shownPath = srcPath;
@@ -162,7 +186,11 @@ void Core::decompress( std::filesystem::path srcPath ) {
     std::fstream src, dest;
     src.open( hiddenPath, std::ios::binary | std::ios::in );
     dest.open( shownPath, std::ios::binary | std::ios::out );
-    if( !src.is_open() || !dest.is_open() ) return; // TODO: error
+    if( !src.is_open() || !dest.is_open() ) {
+        MSG_ERR( "Unable to open files " + hiddenPath.string() + " or "
+                 + shownPath.string(), ERROR_OPEN_FILE );
+        return;
+    }
 
     // Get method signature
     std::uint8_t methodSize = src.get();
@@ -173,16 +201,20 @@ void Core::decompress( std::filesystem::path srcPath ) {
     std::string command = "/usr/local/share/yap/Methods/";
     command += ( std::string( method ) + "/./decompress " + hiddenPath.c_str() +
                                                       " " + shownPath.c_str() );
+    MSG_LOG( "Decompress file is running: " + shownPath.string() );
     int methodError = std::system( command.c_str() );
 
     src.close(); dest.close();
     switch( methodError ) {
         case 0:
             std::filesystem::remove( hiddenPath );
+            MSG_LOG( "Succesful decompress file " + shownPath.string() );
             break;
         default:
             std::filesystem::remove( shownPath );
             std::filesystem::rename( hiddenPath, shownPath );
+            MSG_ERR( "Decompress file " + shownPath.string() + " aborted",
+                     ERROR_DECOMPRESS );
             break;
     }
     delete[] method;

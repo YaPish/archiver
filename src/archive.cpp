@@ -269,7 +269,10 @@ void Archive::m_packCatalog( void ) {
 void Archive::m_packSingleFile( std::filesystem::path filePath ) {
     std::filebuf fileBuf;
     fileBuf.open( filePath, std::ios::binary | std::ios::in );
-    if( !fileBuf.is_open() ) return; // TODO: error
+    if( !fileBuf.is_open() ) {
+        MSG_ERR( "Unable to open file " + filePath.string(), ERROR_OPEN_FILE );
+        return;
+    }
 
     std::uintmax_t fileSize = std::filesystem::file_size( filePath );
     m_archiveFile << std::setw( sizeof( std::uintmax_t ) );
@@ -278,6 +281,7 @@ void Archive::m_packSingleFile( std::filesystem::path filePath ) {
     m_archiveFile << &fileBuf;
 
     fileBuf.close();
+    MSG_LOG( "File " + filePath.string() + " packed" );
 }
 
 void Archive::m_packFiles( void ) {
@@ -352,7 +356,10 @@ void Archive::m_extractFiles( void ) {
         if( std::filesystem::is_directory( entity.path() ) ) continue;
 
         file.open( entity.path(), std::ios::binary | std::ios::out );
-        if( !file.is_open() ) return; // TODO: error
+        if( !file.is_open() ) {
+            MSG_ERR( "Unable to open file " + entity.path().string(), ERROR_OPEN_FILE );
+            return;
+        }
 
         std::uintmax_t fileSize = 0;
         for( std::uint8_t i = 0; i < sizeof( std::uintmax_t ); i++ ) {
@@ -369,6 +376,7 @@ void Archive::m_extractFiles( void ) {
         file.write( fileBuf, fileSize );
 
         file.close();
+        MSG_LOG( "File " + entity.path().string() + " extracted" );
     }
     delete[] fileBuf;
 }
@@ -386,29 +394,83 @@ void Archive::pack( std::filesystem::path srcPath ) {
     archivePath = archivePath.filename();
 
     m_archiveFile.open( archivePath, std::ios::binary | std::ios::out );
-    if( !m_archiveFile.is_open() ) return;
+    if( !m_archiveFile.is_open() ) {
+        MSG_ERR( "Unable to open archive " + archivePath.string(), ERROR_OPEN_FILE );
+        return;
+    }
+
     m_packSignature();
     m_packNames();
+    if( g_error != ERROR_NON ) {
+        m_archiveFile.close();
+        std::filesystem::remove( srcPath );
+        return;
+    }
+    MSG_LOG( "Entity names packed" );
+
     m_packCatalog();
+    if( g_error != ERROR_NON ) {
+        m_archiveFile.close();
+        std::filesystem::remove( srcPath );
+        return;
+    }
+    MSG_LOG( "Entity hierarchy packed" );
+
     m_packFiles();
+    if( g_error != ERROR_NON ) {
+        m_archiveFile.close();
+        std::filesystem::remove( srcPath );
+        return;
+    }
+    MSG_LOG( "Entities packed" );
 
     m_archiveFile.close();
 }
 
 void Archive::extract( std::filesystem::path archivePath ) {
-    if( !std::filesystem::is_regular_file( archivePath ) ) return;
+    if( !std::filesystem::is_regular_file( archivePath ) ) {
+        MSG_ERR( "Unable to extract directory " + archivePath.string(), ERROR_DIRECTORY );
+        return;
+    }
+
     m_archiveFile.open( archivePath, std::ios::binary | std::ios::in );
-    if( !m_archiveFile.is_open() ) return;
+    if( !m_archiveFile.is_open() ) {
+        MSG_ERR( "Unable to open archive " + archivePath.string(), ERROR_OPEN_FILE );
+        return;
+    }
 
     m_extractSignature();
-    if( !m_archiveFile.is_open() ) return;
+    if( !m_archiveFile.is_open() ) {
+        MSG_ERR( "File " + archivePath.string() + " is not archive", ERROR_FILE );
+        return;
+    }
 
     m_srcPath = archivePath.filename().stem();
     std::filesystem::create_directory( m_srcPath );
 
     m_extractNames();
+    if( g_error != ERROR_NON ) {
+        m_archiveFile.close();
+        std::filesystem::remove_all( m_srcPath );
+        return;
+    }
+    MSG_LOG( "Entity names extracted" );
+
     m_extractCatalog();
+    if( g_error != ERROR_NON ) {
+        m_archiveFile.close();
+        std::filesystem::remove_all( m_srcPath );
+        return;
+    }
+    MSG_LOG( "Entity hierarchy packed" );
+
     m_extractFiles();
+    if( g_error != ERROR_NON ) {
+        m_archiveFile.close();
+        std::filesystem::remove_all( m_srcPath );
+        return;
+    }
+    MSG_LOG( "Entities extracted" );
 
     m_archiveFile.close();
 }
