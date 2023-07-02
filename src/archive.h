@@ -14,23 +14,23 @@ private:
     std::filesystem::path    m_srcPath;
     std::fstream             m_archiveFile;
 
-    std::uint64_t            m_folderId;
-    std::uint64_t            m_fileId;
+    std::uintmax_t           m_folderId;
+    std::uintmax_t           m_fileId;
 
     std::list< std::string > m_folderNames;
     std::list< std::string > m_fileNames;
 
 private:
-    std::uint64_t              m_idSize( std::filesystem::file_type type );
+    std::uintmax_t              m_idSize( std::filesystem::file_type type );
 
-    void                       m_normaliseCatalog( std::list< std::uint64_t > bitwiseView );
-    void                       m_normaliseNames( std::list< std::uint64_t > bitwiseView );
+    void                        m_normaliseCatalog( std::list< std::uintmax_t > bitwiseView );
+    void                        m_normaliseNames( std::list< std::uintmax_t > bitwiseView );
 
-    void                       m_nameFolderContent( std::filesystem::path folderPath );
-    std::list< std::uint64_t > m_bitwiseFolderContent( std::filesystem::path folderPath );
+    void                        m_nameFolderContent( std::filesystem::path folderPath );
+    std::list< std::uintmax_t > m_bitwiseFolderContent( std::filesystem::path folderPath );
 
-    std::list< std::uint64_t > m_bitwiseCatalog( void );
-    std::list< std::uint64_t > m_bitwiseNames( void );
+    std::list< std::uintmax_t > m_bitwiseCatalog( void );
+    std::list< std::uintmax_t > m_bitwiseNames( void );
 
 
     void m_packSignature( void );

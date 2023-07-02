@@ -43,15 +43,15 @@ inline int g_error;
 //                                 64 Bits                                   //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define CODE_FOLDER( __ID__ )  ( __ID__ | ( static_cast< std::uint64_t >( FOLDER_FLAG ) << 0x38 ) )
-#define CODE_FILE( __ID__ )    ( __ID__ | ( static_cast< std::uint64_t >( FILE_FLAG )   << 0x38 ) )
-#define CODE_END( __ID__ )     ( __ID__ | ( static_cast< std::uint64_t >( FOLDER_END )  << 0x38 ) )
+#define CODE_FOLDER( __ID__ )  ( __ID__ | ( static_cast< std::uintmax_t >( FOLDER_FLAG ) << 0x38 ) )
+#define CODE_FILE( __ID__ )    ( __ID__ | ( static_cast< std::uintmax_t >( FILE_FLAG )   << 0x38 ) )
+#define CODE_END( __ID__ )     ( __ID__ | ( static_cast< std::uintmax_t >( FOLDER_END )  << 0x38 ) )
 
-#define IS_FOLDER( __CODE__ )  ( __CODE__ & ( static_cast< std::uint64_t >( FOLDER_FLAG ) << 0x38 ) )
-#define IS_END( __CODE__ )     ( __CODE__ & ( static_cast< std::uint64_t >( FOLDER_END )  << 0x38 ) )
+#define IS_FOLDER( __CODE__ )  ( __CODE__ & ( static_cast< std::uintmax_t >( FOLDER_FLAG ) << 0x38 ) )
+#define IS_END( __CODE__ )     ( __CODE__ & ( static_cast< std::uintmax_t >( FOLDER_END )  << 0x38 ) )
 
 #define GET_ID( __CODE__ )     ( __CODE__ & 0x3fffffffffffffff )
-#define GET_FLAG( __CODE__ )   ( __CODE__ & ( static_cast< std::uint64_t >( FOLDER_FLAG | FOLDER_END ) << 0x38 ) )
+#define GET_FLAG( __CODE__ )   ( __CODE__ & ( static_cast< std::uintmax_t >( FOLDER_FLAG | FOLDER_END ) << 0x38 ) )
 
 
 ///////////////////////////////////////////////////////////////////////////////
