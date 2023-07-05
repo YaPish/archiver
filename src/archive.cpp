@@ -44,7 +44,7 @@ std::uintmax_t Archive::m_idSize( std::filesystem::file_type type ) {
         case std::filesystem::file_type::directory:
             srcNameSize = m_folderId;
             break;
-        case std::filesystem::file_type::regular:
+        default:
             srcNameSize = m_fileId;
             break;
     }
@@ -194,7 +194,7 @@ void Archive::m_normaliseCatalog( std::list< std::uintmax_t > bitwiseView ) {
             case std::filesystem::file_type::directory:
                 std::filesystem::create_directory( entityPath );
                 break;
-            case std::filesystem::file_type::regular:
+            default:
                 *std::next( m_fileNames.begin(), GET_ID( i ) - 1 )
                     = std::filesystem::absolute( entityPath );
                 std::ofstream newFile( entityPath );
@@ -243,7 +243,7 @@ void Archive::m_normaliseNames( std::list< std::uintmax_t > bitwiseView ) {
 //                              Pack Archive file                            //
 ///////////////////////////////////////////////////////////////////////////////
 
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 1048576
 
 void Archive::m_packSignature( void ) {
     m_archiveFile.write( ARCHIVE_FLAG, sizeof( ARCHIVE_FLAG ) - 1 );
@@ -284,9 +284,6 @@ void Archive::m_packData( void ) {
         }
         putIntToFile( id, &m_archiveFile, idSize );
     }
-
-    // Separator
-    m_archiveFile.put( 0x0 );
 }
 
 void Archive::m_packSingleFile( std::filesystem::path filePath ) {
@@ -297,11 +294,10 @@ void Archive::m_packSingleFile( std::filesystem::path filePath ) {
         return;
     }
 
-    std::intmax_t fileSize = std::filesystem::file_size( filePath );
+    std::uintmax_t fileSize = std::filesystem::file_size( filePath );
     m_archiveFile << std::setw( sizeof( std::uintmax_t ) );
     m_archiveFile.fill( 0x0 );
     putIntToFile( fileSize, &m_archiveFile, sizeof( std::uintmax_t ) );
-//    m_archiveFile << &fileBuf;
 
     char * fileBuf = new char[ BUFFER_SIZE ];
     while( fileSize > BUFFER_SIZE ) {
@@ -377,7 +373,6 @@ void Archive::m_extractData( void ) {
 
         bitwiseCatalog.push_back( entityFlag | firstIdByte | bitwiseEntity );
     }
-    m_archiveFile.get();
 
     m_normaliseCatalog( bitwiseCatalog );
 }

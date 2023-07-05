@@ -8,88 +8,6 @@
 
 
 ///////////////////////////////////////////////////////////////////////////////
-//                                    Fifo                                   //
-///////////////////////////////////////////////////////////////////////////////
-
-void Core::m_executeFifo() {
-    /*
-    // TODO: static cast
-    std::uint8_t commandId = m_pipeFifo.get();
-    std::uint8_t countArgs = m_pipeFifo.get();
-    if( countArgs ) {
-        char ** args = new char *[ countArgs ];
-        for( std::uint8_t i = 0; i < countArgs; i++ ) {
-            std::size_t argSize = m_pipeFifo.get();
-            //m_pipeFifo.getline( &args[ i ], argSize );
-        }
-    }
-
-    // execute command //
-    switch( commandId ) {
-        default:
-            break;
-    }
-
-    // TODO: remove args[]
-    */
-}
-
-void Core::m_clearFifo() {
-
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//                                    Core                                   //
-///////////////////////////////////////////////////////////////////////////////
-
-Core::Core( void )
-    : m_status( CORE_STATUS_NON ) {}
-
-void Core::init( void ) {
-    std::filesystem::path pipeFifoPath;
-
-    // TODO: check existing directory
-    if( mkfifo( pipeFifoPath.c_str(), 0777 ) ) {
-        // TODO: error
-    }
-    m_pipeFifo.open( pipeFifoPath );
-
-    m_status = CORE_STATUS_AVAILABLE;
-}
-
-void Core::update( void ) {
-    /*
-    std::filesystem::path pipeFifoPath;
-
-    while( m_status == CORE_STATUS_AVAILABLE ) {
-        m_pipeFifo.open( pipeFifoPath, std::ios::in );
-        if( !m_pipeFifo.is_open() ) {
-            // TODO: error
-        }
-
-        // TODO: checks by statuses
-        m_executeFifo();
-        m_clearFifo();
-    }
-    // TODO: stop server
-    */
-}
-
-void Core::__exetest( int argc, char ** argv ) {
-    if( argc <= 2 ) return;
-
-    if( std::strcmp( argv[ 1 ], "pack" ) == 0 )
-        pack( std::filesystem::path( argv[ 2 ] ) );
-    else if( std::strcmp( argv[ 1 ], "extract" ) == 0 )
-        extract( std::filesystem::path( argv[ 2 ] ) );
-    else if( std::strcmp( argv[ 1 ], "compress" ) == 0 )
-        compress( std::filesystem::path( argv[ 2 ] ), std::string( argv[ 3 ] ) );
-    else if( std::strcmp( argv[ 1 ], "decompress" ) == 0 )
-        decompress( std::filesystem::path( argv[ 2 ] ) );
-}
-
-
-///////////////////////////////////////////////////////////////////////////////
 //                                   Methods                                 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -150,8 +68,9 @@ void Core::compress( std::filesystem::path srcPath, std::string method ) {
     src.write( method.c_str(), methodSize );
 
     // Exe method
-    std::string command = "/usr/local/share/yap/Methods/";
-    command += ( method + "/./compress " + hiddenPath.c_str() + " " + shownPath.c_str() );
+    std::string command = DIRECTORY_PLUGINS;
+    command += ( std::string( "Methods/" ) + method + "/./compress "
+            + hiddenPath.c_str() + " " + shownPath.c_str() );
     MSG_LOG( "Compress file is running: " + shownPath.string() );
     int methodError = std::system( command.c_str() );
     src.close(); dest.close();
@@ -198,9 +117,9 @@ void Core::decompress( std::filesystem::path srcPath ) {
     src.read( method, methodSize );
 
     // Exe method
-    std::string command = "/usr/local/share/yap/Methods/";
-    command += ( std::string( method ) + "/./decompress " + hiddenPath.c_str() +
-                                                      " " + shownPath.c_str() );
+    std::string command = DIRECTORY_PLUGINS;
+    command += ( std::string( "Methods/" ) + method + "/./decompress "
+            + hiddenPath.c_str() + " " + shownPath.c_str() );
     MSG_LOG( "Decompress file is running: " + shownPath.string() );
     int methodError = std::system( command.c_str() );
 
